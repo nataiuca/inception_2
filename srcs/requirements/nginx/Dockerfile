@@ -4,7 +4,7 @@ ARG DOMAIN_NAME
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends nginx openssl ca-certificates \
-	&& rm -rf /var/lib/apt/lists/*
+	&& rm -rf /var/lib/apt/lists/* /var/www/html/*
 
 COPY conf/default.conf /etc/nginx/conf.d/default.conf
 COPY tools/nginx-entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
