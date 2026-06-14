@@ -20,6 +20,8 @@ The domain used by this project is:
 natferna.42.fr
 ```
 
+For virtual machine setup, host access, SSH, networking checks, and deeper implementation notes, see [`DEV_DOC.md`](DEV_DOC.md).
+
 ## Instructions
 
 Before starting the project, make sure Docker and Docker Compose are installed on the virtual machine.
@@ -37,6 +39,15 @@ sudo mkdir -p /home/natferna/data/mariadb
 sudo mkdir -p /home/natferna/data/wordpress
 sudo chown -R "$USER:$USER" /home/natferna/data
 ```
+
+The persistent data path is configured in `srcs/.env`:
+
+```env
+DATA_PATH=/home/natferna/data
+WP_URL=https://natferna.42.fr
+```
+
+The `.env` file must only contain non-sensitive configuration. Passwords are read from Docker secrets.
 
 Create the secret files in the `secrets` directory before launching the stack:
 
@@ -59,19 +70,25 @@ Check running containers:
 make ps
 ```
 
-Stop the project:
+Stop and remove the project containers and network:
 
 ```bash
 make down
 ```
 
-Remove containers and volumes:
+Stop containers without removing them:
+
+```bash
+make stop
+```
+
+Remove containers, network, and project images while preserving persistent data:
 
 ```bash
 make clean
 ```
 
-Remove containers, volumes, images, and host data:
+Remove containers, volumes, images, and host data for a full reset:
 
 ```bash
 make fclean
@@ -95,7 +112,7 @@ A virtual machine runs a complete guest operating system with its own kernel. Do
 
 ### Secrets vs Environment Variables
 
-Environment variables are useful for non-sensitive configuration, such as domain names, database names, and usernames. Secrets are better for confidential values because they are mounted as files at runtime and are not written directly into Dockerfiles.
+Environment variables are useful for non-sensitive configuration, such as domain names, paths, database names, URLs, and usernames. Secrets are used for confidential values because they are mounted as files at runtime and are not written directly into Dockerfiles or `.env`.
 
 ### Docker Network vs Host Network
 
@@ -103,7 +120,9 @@ The project uses a custom Docker bridge network. Containers can communicate by s
 
 ### Docker Volumes vs Bind Mounts
 
-Docker volumes persist data after containers are removed. This project uses named volumes for MariaDB data and WordPress files. The volumes are configured to store their data under `/home/natferna/data`, as required by the subject.
+Docker volumes persist data after containers are removed. This project uses named volumes for MariaDB data and WordPress files. The volumes are bind-backed to `DATA_PATH`, which is configured as `/home/natferna/data`, as required by the subject.
+
+`make clean` preserves this persistent data. `make fclean` removes the Docker volumes and deletes the host data directories.
 
 ## Resources
 

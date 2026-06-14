@@ -24,7 +24,13 @@ Start the stack:
 make
 ```
 
-Stop the stack:
+Stop the stack without removing containers:
+
+```bash
+make stop
+```
+
+Stop and remove containers and the project network:
 
 ```bash
 make down

@@ -1,7 +1,9 @@
 COMPOSE = docker compose --env-file srcs/.env -f srcs/docker-compose.yml
-DATA_DIR = /home/natferna/data
 
-.PHONY: all build up down restart logs ps clean fclean re
+include srcs/.env
+DATA_DIR = $(DATA_PATH)
+
+.PHONY: all build up stop down restart logs ps clean fclean re
 
 all: up
 
@@ -12,6 +14,9 @@ build:
 up:
 	mkdir -p $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
 	$(COMPOSE) up -d --build
+
+stop:
+	$(COMPOSE) stop
 
 down:
 	$(COMPOSE) down
@@ -25,11 +30,11 @@ ps:
 	$(COMPOSE) ps
 
 clean:
-	$(COMPOSE) down -v
+	$(COMPOSE) down --rmi all
 
 fclean: clean
-	docker system prune -af
-	docker volume prune -f
+	$(COMPOSE) down -v
 	rm -rf $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
+	docker system prune -af
 
 re: fclean all
