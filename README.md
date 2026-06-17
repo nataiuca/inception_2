@@ -13,6 +13,8 @@ The mandatory stack contains:
 - MariaDB, without NGINX.
 - A private Docker network shared by the services.
 - Two Docker named volumes for persistent data.
+- Custom images built from `debian:bookworm`, without ready-made NGINX, WordPress, or MariaDB images.
+- Secrets stored outside `.env` and Dockerfiles.
 
 The domain used by this project is:
 
@@ -120,9 +122,53 @@ The project uses a custom Docker bridge network. Containers can communicate by s
 
 ### Docker Volumes vs Bind Mounts
 
-Docker volumes persist data after containers are removed. This project uses named volumes for MariaDB data and WordPress files. The volumes are bind-backed to `DATA_PATH`, which is configured as `/home/natferna/data`, as required by the subject.
+Docker volumes persist data after containers are removed. This project declares two Docker named volumes:
+
+- `mariadb_data`
+- `wordpress_data`
+
+The services do not mount host paths directly with a service-level bind mount such as `/home/natferna/data:/var/lib/mysql`. Instead, the services mount the named volumes declared in the top-level `volumes:` section of `srcs/docker-compose.yml`.
+
+Those named volumes use the local Docker driver with `driver_opts` so their physical storage is placed under `DATA_PATH`, configured as `/home/natferna/data`, as required by the subject:
+
+```text
+/home/natferna/data/mariadb
+/home/natferna/data/wordpress
+```
+
+During defense, the important distinction is that Docker still manages and lists them as named volumes:
+
+```bash
+docker volume ls
+docker volume inspect mariadb_data
+docker volume inspect wordpress_data
+```
 
 `make clean` preserves this persistent data. `make fclean` removes the Docker volumes and deletes the host data directories.
+
+## Evaluation Checklist
+
+Useful checks after `make`:
+
+```bash
+docker ps
+docker network inspect inception
+docker volume inspect mariadb_data
+docker volume inspect wordpress_data
+curl -k -I https://natferna.42.fr
+docker exec wordpress wp db check --allow-root --path=/var/www/html
+docker exec wordpress wp user list --allow-root --path=/var/www/html
+```
+
+Expected behavior:
+
+- Only `nginx` exposes `0.0.0.0:443->443/tcp`.
+- `wordpress` listens internally on port `9000`.
+- `mariadb` listens internally on port `3306`.
+- `https://natferna.42.fr` responds through the self-signed TLS certificate.
+- `/wp-admin/` redirects unauthenticated users to the WordPress login page.
+- WordPress users `natferna_owner` and `natferna_user` exist.
+- Data survives `make down` followed by `make`.
 
 ## Resources
 

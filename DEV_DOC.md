@@ -25,7 +25,7 @@ DATA_PATH=/home/natferna/data
 WP_URL=https://natferna.42.fr
 ```
 
-`DATA_PATH` must match the host directories created above because Docker Compose uses it to configure the bind-backed named volumes.
+`DATA_PATH` must match the host directories created above because Docker Compose uses it to configure where the named volumes store their data.
 
 ## Virtual Machine and Host Access
 
@@ -545,12 +545,22 @@ Internal services remain private:
 nginx -> wordpress:9000 -> mariadb:3306
 ```
 
-Persistent bind-backed Docker volumes:
+Persistent Docker named volumes:
 
 | Volume | Host path | Container path |
 | --- | --- | --- |
 | `mariadb_data` | `/home/natferna/data/mariadb` | `/var/lib/mysql` |
 | `wordpress_data` | `/home/natferna/data/wordpress` | `/var/www/html` |
+
+The services mount only these named volumes:
+
+```yaml
+volumes:
+  - mariadb_data:/var/lib/mysql
+  - wordpress_data:/var/www/html
+```
+
+They do not use direct service-level bind mounts such as `/home/natferna/data/mariadb:/var/lib/mysql`.
 
 ### Docker Compose Directives
 
@@ -652,6 +662,15 @@ Expected host directories:
 /home/natferna/data/wordpress
 ```
 
+Expected named volumes:
+
+```text
+mariadb_data
+wordpress_data
+```
+
+If `docker volume inspect` shows `driver: local` and a device under `/home/natferna/data`, it means the named volume is stored at the host path required by the subject. The services still reference the Docker volume names, not host paths.
+
 ### MariaDB Verification
 
 ```bash
@@ -701,7 +720,24 @@ From the Linux host, after domain resolution is configured:
 
 ```bash
 curl -k https://natferna.42.fr
+curl -k -I https://natferna.42.fr
+curl -k -I https://natferna.42.fr/wp-admin/
 ```
+
+Expected result for the site:
+
+```text
+HTTP/1.1 200 OK
+```
+
+Expected result for `/wp-admin/` when not logged in:
+
+```text
+HTTP/1.1 302 Found
+Location: https://natferna.42.fr/wp-login.php
+```
+
+This confirms the client reaches NGINX over HTTPS, NGINX forwards PHP requests to WordPress, WordPress is running, and the authentication flow redirects to the login form.
 
 Inspect NGINX configuration and logs:
 
@@ -768,3 +804,117 @@ Each container runs one main foreground process:
 - MariaDB runs `mariadbd --console`.
 
 No container is kept alive with an infinite loop such as `tail -f`, `sleep infinity`, or `while true`.
+
+### Subject Compliance Summary
+
+Main points to explain during evaluation:
+
+| Requirement | Implementation |
+| --- | --- |
+| One service per container | `nginx`, `wordpress`, and `mariadb` each have their own Dockerfile and container. |
+| Base image | Every Dockerfile starts from `debian:bookworm`. |
+| NGINX only on port 443 | Only the NGINX service has `ports: "443:443"`. |
+| TLS | NGINX enables `TLSv1.2 TLSv1.3` and uses a self-signed certificate. |
+| WordPress without NGINX | WordPress runs `php-fpm8.2 -F` on internal port `9000`. |
+| MariaDB without NGINX | MariaDB runs `mariadbd --console` on internal port `3306`. |
+| Private network | All services join the custom bridge network `inception`. |
+| Persistent data | `mariadb_data` and `wordpress_data` persist database and site files. |
+| Secrets | Passwords are read from files mounted under `/run/secrets`. |
+| No fake keep-alive | Entrypoints end with `exec "$@"`; final processes run in foreground. |
+
+### Named Volumes and the Bind-Mount Question
+
+The subject requires Docker named volumes and also requires the data to be stored under `/home/natferna/data`. This project satisfies both by declaring `mariadb_data` and `wordpress_data` as named volumes in the top-level `volumes:` section.
+
+The sensitive point is that the local Docker driver uses:
+
+```yaml
+driver_opts:
+  type: none
+  o: bind
+  device: ${DATA_PATH}/mariadb
+```
+
+and the equivalent WordPress path. This is not a direct bind mount in the service definition. The services mount Docker volume names, and Docker manages those volumes:
+
+```yaml
+services:
+  mariadb:
+    volumes:
+      - mariadb_data:/var/lib/mysql
+```
+
+Defense wording:
+
+```text
+The services do not mount host paths directly. They use Docker named volumes
+declared as mariadb_data and wordpress_data. The local driver is configured so
+Docker stores those named volumes under /home/natferna/data, which is the path
+required by the subject.
+```
+
+Validation commands:
+
+```bash
+docker volume ls
+docker volume inspect mariadb_data
+docker volume inspect wordpress_data
+docker inspect mariadb --format '{{json .Mounts}}'
+docker inspect wordpress --format '{{json .Mounts}}'
+```
+
+What to point out:
+
+- The volume names are `mariadb_data` and `wordpress_data`.
+- The containers mount the volumes at `/var/lib/mysql` and `/var/www/html`.
+- The data location is under `/home/natferna/data`.
+- There is no service-level mount written as `host_path:container_path`.
+
+### End-to-End Validation Flow
+
+Use this sequence for a complete defense check:
+
+```bash
+make fclean
+make
+docker ps
+docker network inspect inception
+docker volume inspect mariadb_data
+docker volume inspect wordpress_data
+curl -k -I https://natferna.42.fr
+curl -k -I https://natferna.42.fr/wp-admin/
+docker exec wordpress wp db check --allow-root --path=/var/www/html
+docker exec wordpress wp user list --allow-root --path=/var/www/html
+```
+
+Expected interpretation:
+
+- `docker ps` shows only NGINX publishing `443`.
+- The network inspection shows the three services on `inception`.
+- Volume inspection shows persistent storage for MariaDB and WordPress.
+- `curl` proves HTTPS and routing through NGINX.
+- `wp db check` proves WordPress can reach MariaDB.
+- `wp user list` proves the administrator and normal user were created.
+
+For persistence, create a WordPress post, then run:
+
+```bash
+make down
+make
+```
+
+The post should still exist after the stack comes back up.
+
+### VM and SSH Note
+
+Docker Compose does not configure SSH. If an evaluator also checks VM access, verify it at the VM level:
+
+```bash
+ss -tlnp | grep ssh
+```
+
+If SSH is configured for the VM on port `4242`, the expected listener is:
+
+```text
+0.0.0.0:4242
+```

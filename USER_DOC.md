@@ -74,6 +74,14 @@ The administrator username is:
 natferna_owner
 ```
 
+The regular WordPress user created by the stack is:
+
+```text
+natferna_user
+```
+
+Passwords are read from the local secret files described below.
+
 ## Credentials
 
 Credentials are stored locally in the `secrets` directory.
@@ -111,6 +119,49 @@ Check HTTPS:
 
 ```bash
 curl -k https://natferna.42.fr
+curl -k -I https://natferna.42.fr
 ```
 
 The `-k` option is needed because the project uses a self-signed TLS certificate.
+
+Check the administration page:
+
+```bash
+curl -k -I https://natferna.42.fr/wp-admin/
+```
+
+Expected result when not logged in:
+
+```text
+HTTP/1.1 302 Found
+Location: https://natferna.42.fr/wp-login.php
+```
+
+This means the HTTPS entrypoint, WordPress, and the login flow are working.
+
+## Check Persistence
+
+To verify that data is not lost when containers are removed:
+
+1. Create or edit a WordPress post from the browser.
+2. Run:
+
+```bash
+make down
+make
+```
+
+3. Open `https://natferna.42.fr` again and check that the post still exists.
+
+`make down` removes containers and the Docker network, but it does not remove the persistent MariaDB and WordPress data.
+
+## Full Reset
+
+Use this only when you want to remove all project data and start from an empty WordPress installation:
+
+```bash
+make fclean
+make
+```
+
+`make fclean` removes containers, project images, Docker volumes, and the host data directories under `/home/natferna/data`.
