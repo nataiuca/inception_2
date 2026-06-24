@@ -154,10 +154,12 @@ ping 10.x.x.x
 From the Linux host:
 
 ```bash
-ssh natferna@10.x.x.x
+ssh -p 4242 natferna@10.x.x.x
 ```
 
 Replace `10.x.x.x` with the current VM IP address.
+
+This VM expects SSH on port `4242`. If port `22` returns `Connection refused`, use `-p 4242`.
 
 SSH is useful for:
 
@@ -259,7 +261,7 @@ https://natferna.42.fr/wp-admin
 If direct access to the VM IP is not possible, forward host port 443 to the VM:
 
 ```bash
-ssh -L 443:localhost:443 natferna@10.x.x.x
+ssh -L 443:localhost:443 -p 4242 natferna@10.x.x.x
 ```
 
 With this tunnel active, the Linux host `/etc/hosts` file should use:
@@ -275,7 +277,7 @@ Without this tunnel, the Linux host should use the VM IP address instead.
 If `sudo` is not available on the Linux host and `/etc/hosts` cannot be edited, use an SSH SOCKS tunnel:
 
 ```bash
-ssh -D 8080 natferna@10.x.x.x
+ssh -D 8080 -p 4242 natferna@10.x.x.x
 ```
 
 Keep that terminal open, then launch Chrome with the SOCKS proxy:
