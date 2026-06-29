@@ -2,7 +2,7 @@ services:
   mariadb:
     build:
       context: ./requirements/mariadb
-    image: inception-mariadb
+    image: mariadb:inception
     container_name: mariadb
     env_file: .env
     environment:
@@ -20,7 +20,7 @@ services:
   wordpress:
     build:
       context: ./requirements/wordpress
-    image: inception-wordpress
+    image: wordpress:inception
     container_name: wordpress
     env_file: .env
     environment:
@@ -49,7 +49,7 @@ services:
       context: ./requirements/nginx
       args:
         DOMAIN_NAME: ${DOMAIN_NAME}
-    image: inception-nginx
+    image: nginx:inception
     container_name: nginx
     env_file: .env
     environment:

@@ -123,6 +123,12 @@ Expected containers:
 - `wordpress`
 - `mariadb`
 
+Expected local project images:
+
+- `nginx:inception`
+- `wordpress:inception`
+- `mariadb:inception`
+
 Check logs:
 
 ```bash

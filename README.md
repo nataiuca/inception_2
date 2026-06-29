@@ -14,6 +14,7 @@ The mandatory stack contains:
 - A private Docker network shared by the services.
 - Two Docker named volumes for persistent data.
 - Custom images built from `debian:bookworm`, without ready-made NGINX, WordPress, or MariaDB images.
+- Local image names matching their services, with explicit non-`latest` tags: `mariadb:inception`, `wordpress:inception`, and `nginx:inception`.
 - Secrets stored outside `.env` and Dockerfiles.
 
 The domain used by this project is:
@@ -119,6 +120,14 @@ make fclean
 
 Each service has its own Dockerfile and is built from `debian:bookworm`, without using ready-made service images. Docker Compose builds the images and starts the containers.
 
+The image repository names match their corresponding services, and the explicit `inception` tag avoids the prohibited implicit `latest` tag:
+
+```text
+mariadb:inception
+wordpress:inception
+nginx:inception
+```
+
 The source tree is organized under `srcs/requirements`, with one directory per service:
 
 - `mariadb`: database installation, configuration, and initialization script.
@@ -173,6 +182,7 @@ docker network inspect inception
 docker volume inspect mariadb_data
 docker volume inspect wordpress_data
 curl -k -I https://natferna.42.fr
+docker images | grep inception
 docker exec wordpress wp db check --allow-root --path=/var/www/html
 docker exec wordpress wp user list --allow-root --path=/var/www/html
 ```
@@ -180,6 +190,7 @@ docker exec wordpress wp user list --allow-root --path=/var/www/html
 Expected behavior:
 
 - Only `nginx` exposes `0.0.0.0:443->443/tcp`.
+- Images are tagged as `mariadb:inception`, `wordpress:inception`, and `nginx:inception`.
 - `wordpress` listens internally on port `9000`.
 - `mariadb` listens internally on port `3306`.
 - `https://natferna.42.fr` responds through the self-signed TLS certificate.

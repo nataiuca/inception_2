@@ -32,9 +32,9 @@ ps:
 clean:
 	$(COMPOSE) down --rmi all
 
-fclean: clean
-	$(COMPOSE) down -v
-	rm -rf $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
-	docker system prune -af
+fclean:
+	-$(COMPOSE) down --rmi all -v
+	sudo rm -rf $(DATA_DIR)/mariadb $(DATA_DIR)/wordpress
+	-docker system prune -af
 
 re: fclean all

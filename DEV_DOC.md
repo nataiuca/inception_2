@@ -462,6 +462,14 @@ These commands are useful for understanding what happens underneath:
 
 If images are not rebuilt, changes in Dockerfiles or entrypoint scripts may not appear in running containers. Use `make clean && make` or `make re` after infrastructure changes.
 
+Project images are built locally with repository names matching their services and explicit non-`latest` tags:
+
+```text
+mariadb:inception
+wordpress:inception
+nginx:inception
+```
+
 ## Container Theory
 
 ### Build Time vs Runtime
@@ -505,7 +513,7 @@ The containers must not be kept alive with fake loops such as:
 while true; do sleep 1; done
 ```
 
-They must also not daemonize their main process in the background. Temporary background processes are acceptable only during initialization, as MariaDB does while creating the first database state, and they must be stopped before the final foreground process starts.
+They must also not daemonize their main process in the background. The MariaDB entrypoint prepares an initialization SQL file and then starts `mariadbd` directly with `exec "$@"`, so the final database server remains PID 1.
 
 ## Applied Architecture
 
@@ -597,7 +605,7 @@ Important directives used in `srcs/docker-compose.yml`:
 | Directive | Role |
 | --- | --- |
 | `build` | Points to each custom Dockerfile. |
-| `image` | Names the locally built project image. |
+| `image` | Names the locally built project image with the service name and a non-`latest` tag, such as `mariadb:inception`. |
 | `container_name` | Gives stable container names for inspection. |
 | `env_file` | Loads non-sensitive configuration from `srcs/.env`. |
 | `secrets` | Mounts password files under `/run/secrets`. |
@@ -645,7 +653,7 @@ docker volume ls
 Expected project resources after `make fclean`:
 
 - no `nginx`, `wordpress`, or `mariadb` containers
-- no `inception-*` images
+- no `mariadb:inception`, `wordpress:inception`, or `nginx:inception` images
 - no `mariadb_data` or `wordpress_data` volumes
 
 Start again:
@@ -661,6 +669,14 @@ Expected containers:
 mariadb
 wordpress
 nginx
+```
+
+Expected project images after `make`:
+
+```text
+mariadb:inception
+wordpress:inception
+nginx:inception
 ```
 
 ### Network Verification
